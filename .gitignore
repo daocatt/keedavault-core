@@ -1,0 +1,27 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test files
+*.kdbx
+test_*.db
+
+# Build artifacts
+*.so
+*.dylib
+*.dll
+*.a
+*.xcframework
+
+# UniFFI generated files
+/uniffi/generated/

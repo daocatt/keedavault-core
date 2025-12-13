@@ -1,0 +1,48 @@
+[package]
+name = "keedavault-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["KeedaVault Team"]
+description = "Cross-platform KDBX vault core library"
+license = "MIT"
+repository = "https://github.com/daocatt/keedavault-core"
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+# KDBX parsing and crypto
+keepass = { version = "0.8", features = ["save_kdbx4"] }
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+aes = "0.8"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# TOTP
+totp-lite = "2.0"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# UniFFI (optional, for iOS)
+uniffi = { version = "0.25", optional = true }
+
+[dev-dependencies]
+tempfile = "3.0"
+
+[features]
+default = []
+uniffi = ["dep:uniffi"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
