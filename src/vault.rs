@@ -287,7 +287,7 @@ impl Vault {
         Ok(())
     }
 
-    /// Delete an entry by ID
+    /// Delete an entry by moving it to the recycle bin
     pub fn delete_entry(&mut self, id: &str) -> Result<()> {
         if self.is_locked {
             return Err(VaultError::VaultLocked);
@@ -295,7 +295,36 @@ impl Vault {
 
         let database = self.database.as_mut().ok_or(VaultError::VaultLocked)?;
 
-        // Find and remove the entry
+        // Find the entry first
+        let entry_node = Self::find_and_remove_entry(&mut database.root, id)
+            .ok_or_else(|| VaultError::EntryNotFound(id.to_string()))?;
+
+        // Get or create recycle bin
+        let recycle_bin = Self::find_or_create_recycle_bin(&mut database.root);
+
+        // Move to recycle bin
+        recycle_bin.children.push(entry_node);
+
+        Ok(())
+    }
+
+    /// Permanently delete an entry (only works for items in recycle bin)
+    pub fn permanently_delete_entry(&mut self, id: &str) -> Result<()> {
+        if self.is_locked {
+            return Err(VaultError::VaultLocked);
+        }
+
+        let database = self.database.as_mut().ok_or(VaultError::VaultLocked)?;
+
+        // Check if the entry is in the recycle bin
+        if !Self::is_in_recycle_bin(&database.root, id) {
+            return Err(VaultError::EntryNotFound(format!(
+                "Entry {} is not in recycle bin. Move to recycle bin first.",
+                id
+            )));
+        }
+
+        // Find and remove the entry permanently
         if Self::remove_entry_from_group(&mut database.root, id) {
             Ok(())
         } else {
@@ -368,7 +397,7 @@ impl Vault {
         Ok(())
     }
 
-    /// Delete a group by ID
+    /// Delete a group by moving it to the recycle bin
     pub fn delete_group(&mut self, id: &str) -> Result<()> {
         if self.is_locked {
             return Err(VaultError::VaultLocked);
@@ -383,11 +412,71 @@ impl Vault {
             ));
         }
 
+        // Find and remove the group
+        let group_node = Self::find_and_remove_group(&mut database.root, id)
+            .ok_or_else(|| VaultError::GroupNotFound(id.to_string()))?;
+
+        // Check if this is the recycle bin itself
+        if let keepass::db::Node::Group(g) = &group_node {
+            if g.name == "Recycle Bin" || g.name == "回收站" {
+                // Don't move recycle bin to itself, just remove it
+                return Ok(());
+            }
+        }
+
+        // Get or create recycle bin
+        let recycle_bin = Self::find_or_create_recycle_bin(&mut database.root);
+
+        // Move to recycle bin
+        recycle_bin.children.push(group_node);
+
+        Ok(())
+    }
+
+    /// Permanently delete a group (only works for items in recycle bin)
+    pub fn permanently_delete_group(&mut self, id: &str) -> Result<()> {
+        if self.is_locked {
+            return Err(VaultError::VaultLocked);
+        }
+
+        let database = self.database.as_mut().ok_or(VaultError::VaultLocked)?;
+
+        // Don't allow deleting the root group
+        if database.root.uuid.to_string() == id {
+            return Err(VaultError::GroupNotFound(
+                "Cannot delete root group".to_string(),
+            ));
+        }
+
+        // Check if the group is in the recycle bin
+        if !Self::is_in_recycle_bin(&database.root, id) {
+            return Err(VaultError::GroupNotFound(format!(
+                "Group {} is not in recycle bin. Move to recycle bin first.",
+                id
+            )));
+        }
+
         if Self::remove_group_from_parent(&mut database.root, id) {
             Ok(())
         } else {
             Err(VaultError::GroupNotFound(id.to_string()))
         }
+    }
+
+    /// Empty the recycle bin
+    pub fn empty_recycle_bin(&mut self) -> Result<()> {
+        if self.is_locked {
+            return Err(VaultError::VaultLocked);
+        }
+
+        let database = self.database.as_mut().ok_or(VaultError::VaultLocked)?;
+
+        // Find recycle bin
+        if let Some(recycle_bin) = Self::find_recycle_bin(&mut database.root) {
+            recycle_bin.children.clear();
+        }
+
+        Ok(())
     }
 
     // Helper methods for traversing the database tree
@@ -629,6 +718,146 @@ impl Vault {
 
         false
     }
+
+    /// Find the recycle bin group
+    fn find_recycle_bin<'a>(
+        group: &'a mut keepass::db::Group,
+    ) -> Option<&'a mut keepass::db::Group> {
+        for child in &mut group.children {
+            match child {
+                keepass::db::Node::Group(g) => {
+                    if g.name == "Recycle Bin" || g.name == "回收站" {
+                        return Some(g);
+                    }
+                    // Recursively search in child groups
+                    if let Some(found) = Self::find_recycle_bin(g) {
+                        return Some(found);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+    /// Find or create the recycle bin group
+    fn find_or_create_recycle_bin<'a>(
+        root: &'a mut keepass::db::Group,
+    ) -> &'a mut keepass::db::Group {
+        // Check if recycle bin exists
+        let exists = root.children.iter().any(|child| {
+            if let keepass::db::Node::Group(g) = child {
+                g.name == "Recycle Bin" || g.name == "回收站"
+            } else {
+                false
+            }
+        });
+
+        if !exists {
+            // Create new recycle bin
+            let mut recycle_bin = keepass::db::Group::default();
+            recycle_bin.name = "Recycle Bin".to_string();
+            recycle_bin.notes = Some("Deleted items".to_string());
+            root.add_child(recycle_bin);
+        }
+
+        // Now find and return it
+        Self::find_recycle_bin(root).unwrap()
+    }
+
+    /// Find and remove an entry, returning the Node
+    fn find_and_remove_entry(
+        group: &mut keepass::db::Group,
+        id: &str,
+    ) -> Option<keepass::db::Node> {
+        // Try to find and remove from this group's children
+        if let Some(pos) = group.children.iter().position(|child| {
+            if let keepass::db::Node::Entry(e) = child {
+                e.uuid.to_string() == id
+            } else {
+                false
+            }
+        }) {
+            return Some(group.children.remove(pos));
+        }
+
+        // Recursively try child groups
+        for child in &mut group.children {
+            if let keepass::db::Node::Group(child_group) = child {
+                if let Some(found) = Self::find_and_remove_entry(child_group, id) {
+                    return Some(found);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Find and remove a group, returning the Node
+    fn find_and_remove_group(
+        group: &mut keepass::db::Group,
+        id: &str,
+    ) -> Option<keepass::db::Node> {
+        // Try to remove from children
+        if let Some(pos) = group.children.iter().position(|child| {
+            if let keepass::db::Node::Group(g) = child {
+                g.uuid.to_string() == id
+            } else {
+                false
+            }
+        }) {
+            return Some(group.children.remove(pos));
+        }
+
+        // Try recursively
+        for child in &mut group.children {
+            if let keepass::db::Node::Group(child_group) = child {
+                if let Some(found) = Self::find_and_remove_group(child_group, id) {
+                    return Some(found);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Check if an entry or group is in the recycle bin
+    fn is_in_recycle_bin(root: &keepass::db::Group, id: &str) -> bool {
+        // Find recycle bin
+        for child in &root.children {
+            if let keepass::db::Node::Group(g) = child {
+                if g.name == "Recycle Bin" || g.name == "回收站" {
+                    // Check if the item is in recycle bin
+                    return Self::contains_item(g, id);
+                }
+            }
+        }
+        false
+    }
+
+    /// Check if a group contains an item (entry or group) with the given ID
+    fn contains_item(group: &keepass::db::Group, id: &str) -> bool {
+        for child in &group.children {
+            match child {
+                keepass::db::Node::Entry(e) => {
+                    if e.uuid.to_string() == id {
+                        return true;
+                    }
+                }
+                keepass::db::Node::Group(g) => {
+                    if g.uuid.to_string() == id {
+                        return true;
+                    }
+                    // Recursively check child groups
+                    if Self::contains_item(g, id) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
 }
 
 #[cfg(test)]
@@ -736,10 +965,16 @@ mod tests {
         // Verify it exists
         assert!(vault.get_entry(&entry_id).is_ok());
 
-        // Delete it
+        // Delete it (moves to recycle bin)
         vault.delete_entry(&entry_id).unwrap();
 
-        // Verify it's gone
+        // Verify it still exists (in recycle bin)
+        assert!(vault.get_entry(&entry_id).is_ok());
+
+        // Permanently delete it
+        vault.permanently_delete_entry(&entry_id).unwrap();
+
+        // Now it should be gone
         assert!(vault.get_entry(&entry_id).is_err());
     }
 
