@@ -21,7 +21,12 @@ test_*.db
 *.dylib
 *.dll
 *.a
+# Allow pre-compiled libs in examples
+!examples/**/*.a
+
 *.xcframework
 
 # UniFFI generated files
+/generated/
 /uniffi/generated/
+bindings/
