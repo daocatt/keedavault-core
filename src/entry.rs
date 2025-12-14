@@ -1,61 +1,83 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// Represents a password entry in the vault
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// # Security
+///
+/// This struct implements `ZeroizeOnDrop` to ensure that sensitive fields
+/// (password, totp_secret) are securely erased from memory when dropped.
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct Entry {
     /// Unique identifier
+    #[zeroize(skip)]
     pub id: String,
 
     /// Parent group ID
+    #[zeroize(skip)]
     pub group_id: String,
 
     /// Entry title
+    #[zeroize(skip)]
     pub title: String,
 
     /// Username
     pub username: String,
 
-    /// Password (encrypted in storage)
+    /// Password (encrypted in storage, zeroized on drop)
     pub password: String,
 
     /// URL
+    #[zeroize(skip)]
     pub url: String,
 
     /// Notes
     pub notes: String,
 
     /// Tags
+    #[zeroize(skip)]
     pub tags: Vec<String>,
 
-    /// TOTP secret (if any)
+    /// TOTP secret (if any, zeroized on drop)
     pub totp_secret: Option<String>,
 
     /// Custom fields
     pub custom_fields: Vec<CustomField>,
 
     /// Creation time
+    #[zeroize(skip)]
     pub created_at: DateTime<Utc>,
 
     /// Last modification time
+    #[zeroize(skip)]
     pub modified_at: DateTime<Utc>,
 
     /// Last access time
+    #[zeroize(skip)]
     pub accessed_at: DateTime<Utc>,
 
     /// Expiry time (if any)
+    #[zeroize(skip)]
     pub expires_at: Option<DateTime<Utc>>,
 
     /// Whether this entry is a favorite
+    #[zeroize(skip)]
     pub is_favorite: bool,
 }
 
 /// Custom field in an entry
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// # Security
+///
+/// Protected fields are zeroized on drop to prevent sensitive data leakage.
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct CustomField {
+    #[zeroize(skip)]
     pub key: String,
     pub value: String,
+    #[zeroize(skip)]
     pub protected: bool,
 }
 
