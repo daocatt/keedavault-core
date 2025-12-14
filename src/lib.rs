@@ -26,6 +26,10 @@ pub mod vault;
 #[cfg(feature = "uniffi")]
 pub mod uniffi_bindings;
 
+// Debug: Re-export everything from uniffi_bindings to force inclusion
+#[cfg(feature = "uniffi")]
+pub use uniffi_bindings::*;
+
 // Re-export main types
 pub use entry::{CustomField, Entry};
 pub use error::{Result, VaultError};
@@ -35,6 +39,11 @@ pub use vault::{Vault, VaultConfig};
 // UniFFI scaffolding setup
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
+
+#[no_mangle]
+pub extern "C" fn test_symbol_export() -> i32 {
+    42
+}
 
 #[cfg(test)]
 mod tests {
