@@ -248,3 +248,19 @@ let code = try generateTotp(secret: "JBSWY3DPEHPK3PXP")
 1. 生成 Swift 绑定
 2. 创建 iOS 示例项目
 3. 或者继续 Phase 2: Desktop 集成
+
+## 📝 编译警告处理 (2025-12-14 更新)
+
+在启用 `uniffi` feature 编译时，会遇到一个来自 UniFFI 宏生成代码的警告：
+`warning: function pointer comparisons do not produce meaningful results`
+
+由于这是宏生成的代码，无法直接修改，我们在 `src/lib.rs` 中添加了 crate 级别的警告抑制：
+
+```rust
+// Suppress warnings from UniFFI generated code
+#![cfg_attr(feature = "uniffi", allow(unpredictable_function_pointer_comparisons))]
+```
+
+这确保了：
+1. 编译输出干净无警告
+2. 只在启用 uniffi 时生效，不影响常规开发

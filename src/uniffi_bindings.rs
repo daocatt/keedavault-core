@@ -116,7 +116,7 @@ impl From<crate::Entry> for Entry {
 
 impl From<Entry> for crate::Entry {
     fn from(e: Entry) -> Self {
-        use chrono::{DateTime, TimeZone, Utc};
+        use chrono::{TimeZone, Utc};
         crate::Entry {
             id: e.id,
             group_id: e.group_id,

@@ -11,6 +11,9 @@
 //! - Desktop: Direct Rust API (via Tauri)
 //! - iOS: Swift bindings via UniFFI
 
+// Suppress warnings from UniFFI generated code
+#![cfg_attr(feature = "uniffi", allow(unpredictable_function_pointer_comparisons))]
+
 pub mod crypto;
 pub mod entry;
 pub mod error;
