@@ -9,7 +9,8 @@ This is a minimal SwiftUI demo application showcasing how to integrate `keedavau
 
 ## Quick Start (No Rust experience needed)
 
-We have pre-included a compiled static library for **iOS Simulator (Apple Silicon)**.
+We have pre-included a **Universal Fat Library** for iOS Simulators.
+It supports both **Apple Silicon (arm64)** and **Intel (x86_64)** Macs.
 
 1.  **Create a Project**:
     - Open Xcode.
@@ -18,37 +19,41 @@ We have pre-included a compiled static library for **iOS Simulator (Apple Silico
 
 2.  **Add Files**:
     - Right-click on the project folder in Xcode Navigator.
-    - Select **"Add Files to..."**.
-    - Navigate to the `Sources` folder from this directory.
-    - select `VaultViewModel.swift` and Add it to your project's main group (usually named "KeedaVaultDemo").
-    - **For `KeedaVaultDemoApp.swift` and `ContentView.swift`**: You can replace the existing files Xcode created, or copy the content from our examples into your existing files.
-    - Select the `Bindings` folder and add it (ensure "Create groups" is selected).
-    - Select the `Libs` folder and add it.
+    - **Add `VaultViewModel.swift`**:
+        - Select **"Add Files to..."**.
+        - Navigate to `examples/ios-demo/Sources/`.
+        - Select `VaultViewModel.swift`.
+        - **Option**: Check "Copy items if needed".
+        - Add it to the main "KeedaVaultDemo" group.
+    
+    - **Add Bridging Header**:
+        - Select `KeedavaultDemo-Bridging-Header.h` from `examples/ios-demo/Sources/`.
+        - Add it to the main group.
+
+    - **Update `KeedaVaultDemoApp.swift` and `ContentView.swift`**:
+        - Replace the content of the Xcode-created files with the code from `Sources/`.
+
+    - **Add Bindings & Libs**:
+        - Select the `Bindings` folder (Check **"Create groups"**).
+        - Select the `Libs` folder (Check **"Create groups"**).
 
 3.  **Configure Build Settings**:
-    - Go to **Build Phases** > **Link Binary with Libraries**.
-    - Ensure `libkeedavault_core.a` is added.
-    - Click `+` and add `libresolv.tbd` (required for some Rust std lib functions).
-
-4.  **Configure Search Paths** (Crucial Step):
-    This tells Xcode where to find the Rust module map.
+    - **Link Binary with Libraries**: Ensure `libkeedavault_core.a` is present.
+    - **Add System Library**: Click `+` and add `libresolv.tbd`.
     
-    1.  Select the **KeedaVaultDemo** project (blue icon) in the Project Navigator.
-    2.  Select the **KeedaVaultDemo** *Target* (not the Project) in the main editor list.
-    3.  Select the **Build Settings** tab.
-    4.  **Vital**: Click **"All"** (instead of "Basic") in the filter bar to reveal hidden settings.
-    5.  In the search bar, type `SWIFT_INCLUDE_PATHS` directly.
-        - This ensures you find the setting regardless of its display name (usually **"Import Paths"** under *Swift Compiler - Search Paths*).
-    6.  Double-click the empty value area and add:
-        - `$(PROJECT_DIR)/../Bindings`
+4.  **Configure C Bindings (Bridging Header)**:
+    This is the most reliable method for local static libraries.
     
-    *If compilation still fails with "module not found", also add the same path to **"Header Search Paths"** (`HEADER_SEARCH_PATHS`).*
-
+    1.  Go to **Build Settings** > Search for `Bridging Header`.
+    2.  Set **Objective-C Bridging Header** to: `KeedaVaultDemo/KeedaVaultDemo-Bridging-Header.h`
+        *(Adjust path if you placed the file elsewhere. It must be relative to the `.xcodeproj`)*.
+    3.  Search for `HEADER_SEARCH_PATHS`.
+    4.  Add: `$(PROJECT_DIR)/../Bindings`
+    5.  **Important**: Open `Bindings/keedavault_core.swift` and ensure the `import keedavault_coreFFI` block is commented out (we did this for you, but check if you regenerate).
 
 5.  **Run**:
-    - Select an **iPhone Simulator** (e.g., iPhone 15 Pro).
-    - Hit **Run** (Cmd+R).
-    - The app should launch. Click "Create Demo Vault" to test core functionality!
+    - Select any Simulator (iPhone 16, etc.).
+    - Cmd+R.
 
 ## Troubleshooting
 
@@ -64,16 +69,23 @@ We have pre-included a compiled static library for **iOS Simulator (Apple Silico
     - **Check Build Phases**: Go to your Target's **Build Phases** > **Compile Sources**. Ensure `keedavault_coreFFI.h` is **NOT** listed there. Headers should not be compiled directly. If it is there, remove it (select and click `-`).
     - Try **Product > Clean Build Folder**.
 
-## Rebuilding the Core
+## Rebuilding the Core (Advanced)
 
-If you modify the Rust code, rebuild the library:
+If you modify the Rust code, you need to rebuild the static library.
+Since we support both Intel and M1/M2 Macs, we create a **Fat Library**.
 
 ```bash
-# For Simulator (M1/M2)
+# 1. Build for Apple Silicon Simulator
 cargo build --release --target aarch64-apple-ios-sim --features uniffi
 
-# For Physical Device
-cargo build --release --target aarch64-apple-ios --features uniffi
+# 2. Build for Intel Simulator
+cargo build --release --target x86_64-apple-ios --features uniffi
+
+# 3. Combine into a Fat Library
+lipo -create \
+  target/aarch64-apple-ios-sim/release/libkeedavault_core.a \
+  target/x86_64-apple-ios/release/libkeedavault_core.a \
+  -output examples/ios-demo/Libs/libkeedavault_core.a
 ```
 
-Then copy the new `.a` file to `Libs/`.
+*(Note: In `Cargo.toml`, we use `strip = false` and `lto = false` to ensure symbols are preserved for static linking.)*
