@@ -57,6 +57,11 @@ We have pre-included a compiled static library for **iOS Simulator (Apple Silico
     - Ensure `libkeedavault_core.a` is linked.
     - Ensure you are running on the correct architecture (Simulator / Apple Silicon). If running on a physical device, you need to rebuild the library for `aarch64-apple-ios`.
 
+- **"Target has Swift tasks not blocking downstream targets"**:
+    - This is usually a harmless warning in Xcode.
+    - **Check Build Phases**: Go to your Target's **Build Phases** > **Compile Sources**. Ensure `keedavault_coreFFI.h` is **NOT** listed there. Headers should not be compiled directly. If it is there, remove it (select and click `-`).
+    - Try **Product > Clean Build Folder**.
+
 ## Rebuilding the Core
 
 If you modify the Rust code, rebuild the library:
