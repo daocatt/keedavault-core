@@ -120,7 +120,7 @@ impl Vault {
         &self.path
     }
 
-    /// Get all entries from the database (read-only for now)
+    /// Get all entries from the database
     pub fn get_entries(&self) -> Result<Vec<Entry>> {
         if self.is_locked {
             return Err(VaultError::VaultLocked);
@@ -130,7 +130,7 @@ impl Vault {
         let mut entries = Vec::new();
 
         // Recursively collect all entries from all groups
-        self.collect_entries_from_group(&database.root, &mut entries);
+        Self::collect_entries_from_group(&database.root, &mut entries);
 
         Ok(entries)
     }
@@ -148,38 +148,162 @@ impl Vault {
             .ok_or_else(|| VaultError::EntryNotFound(id.to_string()))
     }
 
-    /// Add a new entry (TODO: Implement in Phase 2)
+    /// Add a new entry to a specific group
     pub fn add_entry(&mut self, entry: Entry) -> Result<String> {
         if self.is_locked {
             return Err(VaultError::VaultLocked);
         }
 
-        // TODO: Implement actual entry addition in Phase 2
-        // For now, just return the ID to maintain API compatibility
+        let database = self.database.as_mut().ok_or(VaultError::VaultLocked)?;
+
+        // Find the target group
+        let group = Self::find_group_mut(&mut database.root, &entry.group_id)
+            .ok_or_else(|| VaultError::GroupNotFound(entry.group_id.clone()))?;
+
+        // Convert our Entry to keepass::db::Entry
+        let mut kp_entry = keepass::db::Entry::default();
+
+        // Set UUID to match our entry ID
+        if let Ok(uuid) = uuid::Uuid::parse_str(&entry.id) {
+            kp_entry.uuid = uuid;
+        }
+
+        // Set standard fields
+        kp_entry.fields.insert(
+            "Title".to_string(),
+            keepass::db::Value::Unprotected(entry.title.clone()),
+        );
+        kp_entry.fields.insert(
+            "UserName".to_string(),
+            keepass::db::Value::Unprotected(entry.username.clone()),
+        );
+        kp_entry.fields.insert(
+            "Password".to_string(),
+            keepass::db::Value::Protected(entry.password.as_bytes().to_vec().into()),
+        );
+
+        if !entry.url.is_empty() {
+            kp_entry.fields.insert(
+                "URL".to_string(),
+                keepass::db::Value::Unprotected(entry.url.clone()),
+            );
+        }
+
+        if !entry.notes.is_empty() {
+            kp_entry.fields.insert(
+                "Notes".to_string(),
+                keepass::db::Value::Unprotected(entry.notes.clone()),
+            );
+        }
+
+        // Add TOTP if present
+        if let Some(totp_secret) = &entry.totp_secret {
+            kp_entry.fields.insert(
+                "otp".to_string(),
+                keepass::db::Value::Protected(totp_secret.as_bytes().to_vec().into()),
+            );
+        }
+
+        // Add custom fields
+        for field in &entry.custom_fields {
+            let value = if field.protected {
+                keepass::db::Value::Protected(field.value.as_bytes().to_vec().into())
+            } else {
+                keepass::db::Value::Unprotected(field.value.clone())
+            };
+            kp_entry.fields.insert(field.key.clone(), value);
+        }
+
+        // Add to group (add_child will wrap it in Node::Entry)
+        group.add_child(kp_entry);
+
         Ok(entry.id.clone())
     }
 
-    /// Update an existing entry (TODO: Implement in Phase 2)
-    pub fn update_entry(&mut self, _id: &str, _entry: Entry) -> Result<()> {
+    /// Update an existing entry
+    pub fn update_entry(&mut self, id: &str, entry: Entry) -> Result<()> {
         if self.is_locked {
             return Err(VaultError::VaultLocked);
         }
 
-        // TODO: Implement actual entry update in Phase 2
+        let database = self.database.as_mut().ok_or(VaultError::VaultLocked)?;
+
+        // Find and update the entry
+        let kp_entry = Self::find_entry_mut(&mut database.root, id)
+            .ok_or_else(|| VaultError::EntryNotFound(id.to_string()))?;
+
+        // Update standard fields
+        kp_entry.fields.insert(
+            "Title".to_string(),
+            keepass::db::Value::Unprotected(entry.title.clone()),
+        );
+        kp_entry.fields.insert(
+            "UserName".to_string(),
+            keepass::db::Value::Unprotected(entry.username.clone()),
+        );
+        kp_entry.fields.insert(
+            "Password".to_string(),
+            keepass::db::Value::Protected(entry.password.as_bytes().to_vec().into()),
+        );
+        kp_entry.fields.insert(
+            "URL".to_string(),
+            keepass::db::Value::Unprotected(entry.url.clone()),
+        );
+
+        if !entry.notes.is_empty() {
+            kp_entry.fields.insert(
+                "Notes".to_string(),
+                keepass::db::Value::Unprotected(entry.notes.clone()),
+            );
+        } else {
+            kp_entry.fields.remove("Notes");
+        }
+
+        // Update TOTP
+        if let Some(totp_secret) = &entry.totp_secret {
+            kp_entry.fields.insert(
+                "otp".to_string(),
+                keepass::db::Value::Protected(totp_secret.as_bytes().to_vec().into()),
+            );
+        } else {
+            kp_entry.fields.remove("otp");
+        }
+
+        // Update custom fields - remove old ones and add new ones
+        let standard_fields = ["Title", "UserName", "Password", "URL", "Notes", "otp"];
+        kp_entry
+            .fields
+            .retain(|k, _| standard_fields.contains(&k.as_str()));
+
+        for field in &entry.custom_fields {
+            let value = if field.protected {
+                keepass::db::Value::Protected(field.value.as_bytes().to_vec().into())
+            } else {
+                keepass::db::Value::Unprotected(field.value.clone())
+            };
+            kp_entry.fields.insert(field.key.clone(), value);
+        }
+
         Ok(())
     }
 
-    /// Delete an entry (TODO: Implement in Phase 2)
-    pub fn delete_entry(&mut self, _id: &str) -> Result<()> {
+    /// Delete an entry by ID
+    pub fn delete_entry(&mut self, id: &str) -> Result<()> {
         if self.is_locked {
             return Err(VaultError::VaultLocked);
         }
 
-        // TODO: Implement actual entry deletion in Phase 2
-        Ok(())
+        let database = self.database.as_mut().ok_or(VaultError::VaultLocked)?;
+
+        // Find and remove the entry
+        if Self::remove_entry_from_group(&mut database.root, id) {
+            Ok(())
+        } else {
+            Err(VaultError::EntryNotFound(id.to_string()))
+        }
     }
 
-    /// Get all groups from the database (read-only for now)
+    /// Get all groups from the database
     pub fn get_groups(&self) -> Result<Vec<Group>> {
         if self.is_locked {
             return Err(VaultError::VaultLocked);
@@ -189,18 +313,90 @@ impl Vault {
         let mut groups = Vec::new();
 
         // Recursively collect all groups
-        self.collect_groups_from_group(&database.root, None, &mut groups);
+        Self::collect_groups_from_group(&database.root, None, &mut groups);
 
         Ok(groups)
+    }
+
+    /// Add a new group
+    pub fn add_group(&mut self, group: Group) -> Result<String> {
+        if self.is_locked {
+            return Err(VaultError::VaultLocked);
+        }
+
+        let database = self.database.as_mut().ok_or(VaultError::VaultLocked)?;
+
+        // Find parent group or use root
+        let parent = if let Some(parent_id) = &group.parent_id {
+            Self::find_group_mut(&mut database.root, parent_id)
+                .ok_or_else(|| VaultError::GroupNotFound(parent_id.clone()))?
+        } else {
+            &mut database.root
+        };
+
+        // Create new keepass group
+        let mut kp_group = keepass::db::Group::default();
+
+        // Set UUID to match our group ID
+        if let Ok(uuid) = uuid::Uuid::parse_str(&group.id) {
+            kp_group.uuid = uuid;
+        }
+
+        kp_group.name = group.name.clone();
+        kp_group.notes = Some(group.notes.clone());
+
+        parent.add_child(kp_group);
+
+        Ok(group.id.clone())
+    }
+
+    /// Update a group
+    pub fn update_group(&mut self, id: &str, group: Group) -> Result<()> {
+        if self.is_locked {
+            return Err(VaultError::VaultLocked);
+        }
+
+        let database = self.database.as_mut().ok_or(VaultError::VaultLocked)?;
+
+        // Find and update the group
+        let kp_group = Self::find_group_mut(&mut database.root, id)
+            .ok_or_else(|| VaultError::GroupNotFound(id.to_string()))?;
+
+        kp_group.name = group.name.clone();
+        kp_group.notes = Some(group.notes.clone());
+
+        Ok(())
+    }
+
+    /// Delete a group by ID
+    pub fn delete_group(&mut self, id: &str) -> Result<()> {
+        if self.is_locked {
+            return Err(VaultError::VaultLocked);
+        }
+
+        let database = self.database.as_mut().ok_or(VaultError::VaultLocked)?;
+
+        // Don't allow deleting the root group
+        if database.root.uuid.to_string() == id {
+            return Err(VaultError::GroupNotFound(
+                "Cannot delete root group".to_string(),
+            ));
+        }
+
+        if Self::remove_group_from_parent(&mut database.root, id) {
+            Ok(())
+        } else {
+            Err(VaultError::GroupNotFound(id.to_string()))
+        }
     }
 
     // Helper methods for traversing the database tree
 
     /// Recursively collect entries from a group and its children
-    fn collect_entries_from_group(&self, group: &keepass::db::Group, entries: &mut Vec<Entry>) {
+    fn collect_entries_from_group(group: &keepass::db::Group, entries: &mut Vec<Entry>) {
         // Process entries in this group
         for entry in group.entries() {
-            if let Some(converted) = self.convert_keepass_entry(entry, &group.uuid.to_string()) {
+            if let Some(converted) = Self::convert_keepass_entry(entry, &group.uuid.to_string()) {
                 entries.push(converted);
             }
         }
@@ -208,17 +404,13 @@ impl Vault {
         // Recursively process child groups
         for child in &group.children {
             if let keepass::db::Node::Group(child_group) = child {
-                self.collect_entries_from_group(child_group, entries);
+                Self::collect_entries_from_group(child_group, entries);
             }
         }
     }
 
     /// Convert a keepass entry to our Entry structure
-    fn convert_keepass_entry(
-        &self,
-        kp_entry: &keepass::db::Entry,
-        group_id: &str,
-    ) -> Option<Entry> {
+    fn convert_keepass_entry(kp_entry: &keepass::db::Entry, group_id: &str) -> Option<Entry> {
         let title = kp_entry.get_title().unwrap_or("");
         let username = kp_entry.get_username().unwrap_or("");
         let password = kp_entry.get_password().unwrap_or("");
@@ -306,9 +498,8 @@ impl Vault {
         })
     }
 
-    /// Recursively collect groups from a node
+    /// Recursively collect groups from a group
     fn collect_groups_from_group(
-        &self,
         group: &keepass::db::Group,
         parent_id: Option<String>,
         groups: &mut Vec<Group>,
@@ -328,9 +519,115 @@ impl Vault {
         // Recursively process children
         for child in &group.children {
             if let keepass::db::Node::Group(child_group) = child {
-                self.collect_groups_from_group(child_group, Some(group_id.clone()), groups);
+                Self::collect_groups_from_group(child_group, Some(group_id.clone()), groups);
             }
         }
+    }
+
+    /// Find a mutable reference to a group by ID (static method to avoid borrow checker issues)
+    fn find_group_mut<'a>(
+        group: &'a mut keepass::db::Group,
+        id: &str,
+    ) -> Option<&'a mut keepass::db::Group> {
+        // Check if this is the group we're looking for
+        if group.uuid.to_string() == id {
+            return Some(group);
+        }
+
+        // Search in children
+        for child in &mut group.children {
+            if let keepass::db::Node::Group(child_group) = child {
+                // Check if the child is the one we're looking for
+                if child_group.uuid.to_string() == id {
+                    return Some(child_group);
+                }
+                // Recursively search in the child's children
+                if let Some(found) = Self::find_group_mut(child_group, id) {
+                    return Some(found);
+                }
+            }
+        }
+        None
+    }
+
+    /// Find a mutable reference to an entry by ID
+    ///
+    /// This directly iterates over the children Vec<Node>, which avoids
+    /// the borrow checker issues with entries_mut()
+    fn find_entry_mut<'a>(
+        group: &'a mut keepass::db::Group,
+        id: &str,
+    ) -> Option<&'a mut keepass::db::Entry> {
+        // Search in this group's children
+        for child in &mut group.children {
+            match child {
+                keepass::db::Node::Entry(entry) => {
+                    if entry.uuid.to_string() == id {
+                        return Some(entry);
+                    }
+                }
+                keepass::db::Node::Group(child_group) => {
+                    // Recursively search in child groups
+                    if let Some(found) = Self::find_entry_mut(child_group, id) {
+                        return Some(found);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Remove an entry from a group by ID
+    fn remove_entry_from_group(group: &mut keepass::db::Group, id: &str) -> bool {
+        // Try to remove from this group's children
+        if let Some(pos) = group.children.iter().position(|child| {
+            if let keepass::db::Node::Entry(e) = child {
+                e.uuid.to_string() == id
+            } else {
+                false
+            }
+        }) {
+            group.children.remove(pos);
+            return true;
+        }
+
+        // Recursively try child groups
+        for child in &mut group.children {
+            if let keepass::db::Node::Group(child_group) = child {
+                if Self::remove_entry_from_group(child_group, id) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Remove a group from its parent (static method to avoid borrow checker issues)
+    fn remove_group_from_parent(group: &mut keepass::db::Group, id: &str) -> bool {
+        // Try to remove from children
+        if let Some(pos) = group.children.iter().position(|child| {
+            if let keepass::db::Node::Group(g) = child {
+                g.uuid.to_string() == id
+            } else {
+                false
+            }
+        }) {
+            group.children.remove(pos);
+            return true;
+        }
+
+        // Try recursively
+        for child in &mut group.children {
+            if let keepass::db::Node::Group(child_group) = child {
+                if Self::remove_group_from_parent(child_group, id) {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 }
 
@@ -362,5 +659,108 @@ mod tests {
 
         vault.lock();
         assert!(vault.is_locked());
+    }
+
+    #[test]
+    fn test_add_and_get_entry() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().join("test.kdbx");
+
+        let mut vault = Vault::create(&vault_path, "test123", VaultConfig::default()).unwrap();
+
+        // Get root group ID
+        let groups = vault.get_groups().unwrap();
+        let root_id = groups[0].id.clone();
+
+        // Create and add an entry
+        let mut entry = Entry::new("Test Entry".to_string(), root_id.clone());
+        entry.username = "testuser".to_string();
+        entry.password = "testpass".to_string();
+        entry.url = "https://example.com".to_string();
+
+        let entry_id = vault.add_entry(entry.clone()).unwrap();
+
+        // Save and reload
+        vault.save().unwrap();
+        drop(vault);
+
+        let vault = Vault::open(&vault_path, "test123").unwrap();
+
+        // Verify entry was saved
+        let retrieved = vault.get_entry(&entry_id).unwrap();
+        assert_eq!(retrieved.title, "Test Entry");
+        assert_eq!(retrieved.username, "testuser");
+        assert_eq!(retrieved.password, "testpass");
+    }
+
+    #[test]
+    fn test_update_entry() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().join("test.kdbx");
+
+        let mut vault = Vault::create(&vault_path, "test123", VaultConfig::default()).unwrap();
+
+        let groups = vault.get_groups().unwrap();
+        let root_id = groups[0].id.clone();
+
+        // Add entry
+        let mut entry = Entry::new("Original".to_string(), root_id);
+        entry.username = "user1".to_string();
+        let entry_id = vault.add_entry(entry.clone()).unwrap();
+
+        // Update entry
+        entry.title = "Updated".to_string();
+        entry.username = "user2".to_string();
+        vault.update_entry(&entry_id, entry).unwrap();
+
+        // Verify update
+        let updated = vault.get_entry(&entry_id).unwrap();
+        assert_eq!(updated.title, "Updated");
+        assert_eq!(updated.username, "user2");
+    }
+
+    #[test]
+    fn test_delete_entry() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().join("test.kdbx");
+
+        let mut vault = Vault::create(&vault_path, "test123", VaultConfig::default()).unwrap();
+
+        let groups = vault.get_groups().unwrap();
+        let root_id = groups[0].id.clone();
+
+        // Add entry
+        let entry = Entry::new("To Delete".to_string(), root_id);
+        let entry_id = vault.add_entry(entry).unwrap();
+
+        // Verify it exists
+        assert!(vault.get_entry(&entry_id).is_ok());
+
+        // Delete it
+        vault.delete_entry(&entry_id).unwrap();
+
+        // Verify it's gone
+        assert!(vault.get_entry(&entry_id).is_err());
+    }
+
+    #[test]
+    fn test_add_and_get_group() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().join("test.kdbx");
+
+        let mut vault = Vault::create(&vault_path, "test123", VaultConfig::default()).unwrap();
+
+        let groups = vault.get_groups().unwrap();
+        let root_id = groups[0].id.clone();
+
+        // Add a new group
+        let group = Group::new("Test Group".to_string(), Some(root_id));
+        let group_id = vault.add_group(group).unwrap();
+
+        // Verify it was added
+        let all_groups = vault.get_groups().unwrap();
+        assert!(all_groups
+            .iter()
+            .any(|g| g.id == group_id && g.name == "Test Group"));
     }
 }
