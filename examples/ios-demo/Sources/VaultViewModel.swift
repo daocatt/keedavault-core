@@ -1,4 +1,6 @@
 import Foundation
+import Combine
+import SwiftUI // ObservableObject works best with SwiftUI imports in app code
 
 class VaultViewModel: ObservableObject {
     @Published var isVaultOpen = false

@@ -13,7 +13,11 @@ use std::sync::{Arc, Mutex};
 // Type Definitions for UniFFI
 // ============================================================================
 
+// Debugging: Ensure this file is compiled
+// compile_error!("UNIFFI BINDINGS ARE BEING COMPILED!");
+
 /// Entry data structure for UniFFI (simplified with i64 timestamps)
+
 #[derive(uniffi::Record, Clone)]
 pub struct Entry {
     pub id: String,
@@ -434,4 +438,4 @@ pub fn get_remaining_seconds() -> u32 {
 // UniFFI Scaffolding
 // ============================================================================
 
-// Note: uniffi::setup_scaffolding!() must be called in lib.rs, not here
+// Note: uniffi::setup_scaffolding!() is called in lib.rs
