@@ -19,11 +19,19 @@ pub mod search;
 pub mod totp;
 pub mod vault;
 
+// UniFFI bindings (conditional compilation)
+#[cfg(feature = "uniffi")]
+pub mod uniffi_bindings;
+
 // Re-export main types
-pub use entry::Entry;
+pub use entry::{CustomField, Entry};
 pub use error::{Result, VaultError};
 pub use group::Group;
-pub use vault::Vault;
+pub use vault::{Vault, VaultConfig};
+
+// UniFFI scaffolding setup
+#[cfg(feature = "uniffi")]
+uniffi::setup_scaffolding!();
 
 #[cfg(test)]
 mod tests {
