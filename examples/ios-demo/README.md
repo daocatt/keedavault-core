@@ -19,9 +19,11 @@ We have pre-included a compiled static library for **iOS Simulator (Apple Silico
 2.  **Add Files**:
     - Right-click on the project folder in Xcode Navigator.
     - Select **"Add Files to..."**.
-    - Select the `Sources` folder from this directory (add the files inside, not the folder itself, or create logical groups).
-    - Select the `Bindings` folder (make sure to create groups).
-    - Select the `Libs` folder.
+    - Navigate to the `Sources` folder from this directory.
+    - select `VaultViewModel.swift` and Add it to your project's main group (usually named "KeedaVaultDemo").
+    - **For `KeedaVaultDemoApp.swift` and `ContentView.swift`**: You can replace the existing files Xcode created, or copy the content from our examples into your existing files.
+    - Select the `Bindings` folder and add it (ensure "Create groups" is selected).
+    - Select the `Libs` folder and add it.
 
 3.  **Configure Build Settings**:
     - Go to **Build Phases** > **Link Binary with Libraries**.
