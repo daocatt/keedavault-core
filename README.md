@@ -1,63 +1,65 @@
 # KeedaVault Core
 
-🦀 跨平台 KDBX 密码库核心库 - 使用 Rust 编写
+[中文文档](./README_CN.md)
 
-## 📋 概述
+🦀 Cross-platform KDBX password vault core library - Written in Rust
 
-`keedavault-core` 是 KeedaVault 密码管理器的核心库，提供安全的密码数据库管理功能，完全兼容 KeePass KDBX 格式。
+## 📋 Overview
 
-### 特性
+`keedavault-core` is the core library for the KeedaVault password manager, providing secure password database management capabilities fully compatible with the KeePass KDBX format.
 
-- ✅ **KDBX 支持**: 完全兼容 KeePass 数据库格式（KDBX3/KDBX4）
-- 🔐 **强加密**: Argon2, ChaCha20, AES 加密
-- 🔑 **TOTP 支持**: 时间基准一次性密码生成
-- 🔍 **搜索过滤**: 快速条目搜索和标签过滤
-- 📱 **跨平台**: 支持 Desktop (macOS/Windows/Ubuntu) 和 iOS
-- 🦺 **类型安全**: Rust 内存安全和性能保证
+### Features
 
-### 平台支持
+- ✅ **KDBX Support**: Fully compatible with KeePass database format (KDBX3/KDBX4)
+- 🔐 **Strong Encryption**: Argon2, ChaCha20, AES Encryption
+- 🔑 **TOTP Support**: Time-based One-Time Password generation
+- 🔍 **Search & Filter**: Fast entry search and tag filtering
+- 📱 **Cross-platform**: Support for Desktop (macOS/Windows/Ubuntu) and iOS
+- 🦺 **Type Safe**: Rust memory safety and performance guarantees
 
-| 平台 | 集成方式 | 状态 |
-|------|---------|------|
-| **macOS Desktop** | Tauri (直接 Rust API) | ✅ 支持 |
-| **Windows Desktop** | Tauri (直接 Rust API) | ✅ 支持 |
-| **Ubuntu Desktop** | Tauri (直接 Rust API) | ✅ 支持 |
-| **iOS** | UniFFI (Swift bindings) | 🚧 计划中 |
+### Platform Support
 
-## 🚀 快速开始
+| Platform | Integration Method | Status |
+|----------|-------------------|--------|
+| **macOS Desktop** | Tauri (Direct Rust API) | ✅ Supported |
+| **Windows Desktop** | Tauri (Direct Rust API) | ✅ Supported |
+| **Ubuntu Desktop** | Tauri (Direct Rust API) | ✅ Supported |
+| **iOS** | UniFFI (Swift bindings) | ✅ Supported |
 
-### 安装
+## 🚀 Quick Start
 
-添加到你的 `Cargo.toml`:
+### Installation
+
+Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 keedavault-core = "0.1.0"
 ```
 
-### 基础使用
+### Basic Usage
 
-#### 🖥️ Desktop (macOS/Windows/Ubuntu) - Tauri 集成
+#### 🖥️ Desktop (macOS/Windows/Ubuntu) - Tauri Integration
 
-在 Tauri 项目中直接使用 Rust API：
+Use Rust API directly in your Tauri project:
 
 ```rust
 use keedavault_core::{Vault, VaultConfig, Entry};
 
-// 打开现有数据库
+// Open existing vault
 let vault = Vault::open("my_passwords.kdbx", "master_password")?;
 
-// 获取所有条目
+// Get all entries
 let entries = vault.get_entries()?;
 
-// 创建新数据库
+// Create new vault
 let mut vault = Vault::create(
     "new_vault.kdbx",
     "master_password",
     VaultConfig::default()
 )?;
 
-// 添加条目
+// Add entry
 let mut entry = Entry::new("GitHub".to_string(), "root_group_id".to_string());
 entry.username = "user@example.com".to_string();
 entry.password = "secure_password".to_string();
@@ -65,27 +67,27 @@ entry.url = "https://github.com".to_string();
 
 let entry_id = vault.add_entry(entry)?;
 
-// 保存数据库
+// Save vault
 vault.save()?;
 
-// 锁定数据库
+// Lock vault
 vault.lock();
 ```
 
-#### 📱 iOS - Swift 集成 (通过 UniFFI)
+#### 📱 iOS - Swift Integration (via UniFFI)
 
-> **注意**: iOS 集成需要先编译 XCFramework，详见 [iOS 集成指南](./docs/ios-integration.md)
+> **Note**: iOS integration requires compiling XCFramework first. See [iOS Integration Guide](./docs/ios-integration.md).
 
 ```swift
 import KeedavaultCore
 
-// 打开数据库
+// Open vault
 let vault = try Vault.open(path: "my_passwords.kdbx", password: "master_password")
 
-// 获取条目
+// Get entries
 let entries = try vault.getEntries()
 
-// 创建新条目
+// Create new entry
 var entry = Entry.new(title: "GitHub", groupId: "root_group_id")
 entry.username = "user@example.com"
 entry.password = "secure_password"
@@ -93,233 +95,233 @@ entry.url = "https://github.com"
 
 let entryId = try vault.addEntry(entry: entry)
 
-// 保存
+// Save
 try vault.save()
 
-// 锁定
+// Lock
 vault.lock()
 ```
 
-## 📚 API 文档
+## 📚 API Documentation
 
-### 核心类型
+### Core Types
 
-#### `Vault` - 密码库
+#### `Vault`
 
-主要的密码库管理结构。
+Main structure for vault management.
 
-**方法**:
+**Methods**:
 
-| 方法 | 描述 | Desktop | iOS |
-|------|------|---------|-----|
-| `open(path, password)` | 打开现有数据库 | ✅ | ✅ |
-| `create(path, password, config)` | 创建新数据库 | ✅ | ✅ |
-| `save()` | 保存数据库 | ✅ | ✅ |
-| `lock()` | 锁定数据库 | ✅ | ✅ |
-| `is_locked()` | 检查是否锁定 | ✅ | ✅ |
-| `get_entries()` | 获取所有条目 | ✅ | ✅ |
-| `get_entry(id)` | 获取单个条目 | ✅ | ✅ |
-| `add_entry(entry)` | 添加条目 | ✅ | ✅ |
-| `update_entry(id, entry)` | 更新条目 | ✅ | ✅ |
-| `delete_entry(id)` | 删除条目 | ✅ | ✅ |
-| `get_groups()` | 获取所有分组 | ✅ | ✅ |
+| Method | Description | Desktop | iOS |
+|--------|-------------|---------|-----|
+| `open(path, password)` | Open existing vault | ✅ | ✅ |
+| `create(path, password, config)` | Create new vault | ✅ | ✅ |
+| `save()` | Save vault | ✅ | ✅ |
+| `lock()` | Lock vault | ✅ | ✅ |
+| `is_locked()` | Check if locked | ✅ | ✅ |
+| `get_entries()` | Get all entries | ✅ | ✅ |
+| `get_entry(id)` | Get single entry | ✅ | ✅ |
+| `add_entry(entry)` | Add entry | ✅ | ✅ |
+| `update_entry(id, entry)` | Update entry | ✅ | ✅ |
+| `delete_entry(id)` | Delete entry | ✅ | ✅ |
+| `get_groups()` | Get all groups | ✅ | ✅ |
 
-#### `Entry` - 密码条目
+#### `Entry`
 
-表示一个密码条目。
+Represents a password entry.
 
-**字段**:
+**Fields**:
 
 ```rust
 pub struct Entry {
-    pub id: String,              // 唯一标识符
-    pub group_id: String,        // 所属分组 ID
-    pub title: String,           // 标题
-    pub username: String,        // 用户名
-    pub password: String,        // 密码
+    pub id: String,              // Unique Identifier
+    pub group_id: String,        // Parent Group ID
+    pub title: String,           // Title
+    pub username: String,        // Username
+    pub password: String,        // Password
     pub url: String,             // URL
-    pub notes: String,           // 备注
-    pub tags: Vec<String>,       // 标签
-    pub totp_secret: Option<String>, // TOTP 密钥
-    pub custom_fields: Vec<CustomField>, // 自定义字段
-    pub created_at: DateTime<Utc>,   // 创建时间
-    pub modified_at: DateTime<Utc>,  // 修改时间
-    pub accessed_at: DateTime<Utc>,  // 访问时间
-    pub expires_at: Option<DateTime<Utc>>, // 过期时间
-    pub is_favorite: bool,       // 是否收藏
+    pub notes: String,           // Notes
+    pub tags: Vec<String>,       // Tags
+    pub totp_secret: Option<String>, // TOTP Secret
+    pub custom_fields: Vec<CustomField>, // Custom Fields
+    pub created_at: DateTime<Utc>,   // Creation Time
+    pub modified_at: DateTime<Utc>,  // Modification Time
+    pub accessed_at: DateTime<Utc>,  // Access Time
+    pub expires_at: Option<DateTime<Utc>>, // Expiry Time
+    pub is_favorite: bool,       // Is Favorite
 }
 ```
 
-**方法**:
+**Methods**:
 
-| 方法 | 描述 | Desktop | iOS |
-|------|------|---------|-----|
-| `new(title, group_id)` | 创建新条目 | ✅ | ✅ |
-| `touch()` | 更新修改时间 | ✅ | ✅ |
-| `mark_accessed()` | 标记为已访问 | ✅ | ✅ |
-| `is_expired()` | 检查是否过期 | ✅ | ✅ |
+| Method | Description | Desktop | iOS |
+|--------|-------------|---------|-----|
+| `new(title, group_id)` | Create new entry | ✅ | ✅ |
+| `touch()` | Update modification time | ✅ | ✅ |
+| `mark_accessed()` | Mark as accessed | ✅ | ✅ |
+| `is_expired()` | Check if expired | ✅ | ✅ |
 
-#### `Group` - 分组
+#### `Group`
 
-表示一个分组/文件夹。
+Represents a group/folder.
 
-**字段**:
+**Fields**:
 
 ```rust
 pub struct Group {
-    pub id: String,              // 唯一标识符
-    pub parent_id: Option<String>, // 父分组 ID
-    pub name: String,            // 名称
-    pub icon_id: u32,            // 图标 ID
-    pub notes: String,           // 备注
-    pub is_recycle_bin: bool,    // 是否为回收站
-    pub is_expanded: bool,       // 是否展开
+    pub id: String,              // Unique Identifier
+    pub parent_id: Option<String>, // Parent Group ID
+    pub name: String,            // Name
+    pub icon_id: u32,            // Icon ID
+    pub notes: String,           // Notes
+    pub is_recycle_bin: bool,    // Is Recycle Bin
+    pub is_expanded: bool,       // Is Expanded
 }
 ```
 
-**方法**:
+**Methods**:
 
-| 方法 | 描述 | Desktop | iOS |
-|------|------|---------|-----|
-| `new(name, parent_id)` | 创建新分组 | ✅ | ✅ |
-| `new_recycle_bin()` | 创建回收站 | ✅ | ✅ |
-| `is_root()` | 是否为根分组 | ✅ | ✅ |
+| Method | Description | Desktop | iOS |
+|--------|-------------|---------|-----|
+| `new(name, parent_id)` | Create new group | ✅ | ✅ |
+| `new_recycle_bin()` | Create recycle bin | ✅ | ✅ |
+| `is_root()` | Is root group | ✅ | ✅ |
 
-#### `VaultConfig` - 数据库配置
+#### `VaultConfig`
 
-配置数据库的加密参数。
+Configuration for vault encryption parameters.
 
 ```rust
 pub struct VaultConfig {
-    pub kdf_iterations: u64,      // KDF 迭代次数
-    pub argon2_memory: u64,       // Argon2 内存 (KB)
-    pub argon2_parallelism: u32,  // Argon2 并行度
+    pub kdf_iterations: u64,      // KDF Iterations
+    pub argon2_memory: u64,       // Argon2 Memory (KB)
+    pub argon2_parallelism: u32,  // Argon2 Parallelism
 }
 ```
 
-**默认值**:
+**Defaults**:
 - `kdf_iterations`: 2
 - `argon2_memory`: 65536 (64 MB)
 - `argon2_parallelism`: 2
 
-### 搜索和过滤
+### Search and Filter
 
 ```rust
 use keedavault_core::search;
 
-// 全文搜索
+// Full text search
 let results = search::search_entries(&entries, "github");
 
-// 按标签过滤
+// Filter by tag
 let tagged = search::filter_by_tag(&entries, "work");
 
-// 获取收藏
+// Get favorites
 let favorites = search::get_favorites(&entries);
 ```
 
-| 函数 | 描述 | Desktop | iOS |
-|------|------|---------|-----|
-| `search_entries(entries, query)` | 全文搜索 | ✅ | ✅ |
-| `filter_by_tag(entries, tag)` | 标签过滤 | ✅ | ✅ |
-| `get_favorites(entries)` | 获取收藏 | ✅ | ✅ |
+| Function | Description | Desktop | iOS |
+|----------|-------------|---------|-----|
+| `search_entries(entries, query)` | Full text search | ✅ | ✅ |
+| `filter_by_tag(entries, tag)` | Filter by tag | ✅ | ✅ |
+| `get_favorites(entries)` | Get favorites | ✅ | ✅ |
 
-### TOTP (计划中)
+### TOTP
 
 ```rust
 use keedavault_core::totp;
 
-// 生成 TOTP 代码
+// Generate TOTP code
 let code = totp::generate_totp("JBSWY3DPEHPK3PXP")?;
 
-// 验证 TOTP 代码
+// Validate TOTP code
 let is_valid = totp::validate_totp("JBSWY3DPEHPK3PXP", "123456")?;
 ```
 
-### 错误处理
+### Error Handling
 
 ```rust
 use keedavault_core::{VaultError, Result};
 
 match Vault::open("vault.kdbx", "wrong_password") {
-    Ok(vault) => { /* 成功 */ },
+    Ok(vault) => { /* Success */ },
     Err(VaultError::InvalidPassword) => {
-        println!("密码错误");
+        println!("Invalid password");
     },
     Err(VaultError::OpenError(msg)) => {
-        println!("打开失败: {}", msg);
+        println!("Failed to open: {}", msg);
     },
     Err(e) => {
-        println!("其他错误: {}", e);
+        println!("Other error: {}", e);
     }
 }
 ```
 
-**错误类型**:
+**Error Types**:
 
-- `OpenError(String)` - 打开数据库失败
-- `SaveError(String)` - 保存数据库失败
-- `InvalidPassword` - 密码错误
-- `VaultLocked` - 数据库已锁定
-- `EntryNotFound(String)` - 条目不存在
-- `GroupNotFound(String)` - 分组不存在
-- `EncryptionError(String)` - 加密错误
-- `DecryptionError(String)` - 解密错误
+- `OpenError(String)` - Failed to open vault
+- `SaveError(String)` - Failed to save vault
+- `InvalidPassword` - Invalid password
+- `VaultLocked` - Vault is locked
+- `EntryNotFound(String)` - Entry not found
+- `GroupNotFound(String)` - Group not found
+- `EncryptionError(String)` - Encryption error
+- `DecryptionError(String)` - Decryption error
 
-## 🔧 构建
+## 🔧 Build
 
-### Desktop 构建
+### Desktop Build
 
 ```bash
-# 标准构建
+# Standard build
 cargo build --release
 
-# 运行测试
+# Run tests
 cargo test
 
-# 生成文档
+# Generate docs
 cargo doc --open
 ```
 
-### iOS 构建
+### iOS Build
 
-> **注意**: iOS 构建需要 macOS 环境和 Xcode
+> **Note**: iOS build requires macOS environment and Xcode.
 
 ```bash
-# 安装 iOS 目标
+# Add iOS targets
 rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 
-# 构建 iOS 库（启用 UniFFI）
+# Build iOS library (enable UniFFI)
 cargo build --target aarch64-apple-ios --release --features uniffi
 
-# 生成 Swift 绑定
+# Generate Swift bindings
 cargo run --bin uniffi-bindgen generate src/keedavault.udl --language swift
 
-# 打包 XCFramework
+# Package XCFramework
 ./scripts/build-xcframework.sh
 ```
 
-详细步骤请参考 [iOS 集成指南](./docs/ios-integration.md)
+See [iOS Integration Guide](./docs/ios-integration.md) for detailed steps.
 
-## 🎯 平台差异说明
+## 🎯 Platform Differences
 
 ### Desktop (Tauri) vs iOS (UniFFI)
 
-| 特性 | Desktop (Tauri) | iOS (UniFFI) |
-|------|----------------|--------------|
-| **语言** | Rust | Swift |
-| **集成方式** | 直接调用 Rust API | 通过 FFI 调用 |
-| **类型转换** | 无需转换 | 自动生成 Swift 类型 |
-| **性能** | 原生性能 | FFI 开销（极小） |
-| **异步支持** | Rust async/await | Swift async/await |
-| **错误处理** | Rust Result | Swift throws |
-| **内存管理** | Rust 所有权 | ARC + Rust 所有权 |
+| Feature | Desktop (Tauri) | iOS (UniFFI) |
+|---------|-----------------|--------------|
+| **Language** | Rust | Swift |
+| **Integration** | Direct Rust API Call | Via FFI Call |
+| **Type Conversion** | None needed | Auto-generated Swift types |
+| **Performance** | Native | FFI Overhead (Minimal) |
+| **Async Support** | Rust async/await | Swift async/await |
+| **Error Handling** | Rust Result | Swift throws |
+| **Memory** | Rust Ownership | ARC + Rust Ownership |
 
-### 特定平台功能
+### Platform Specific Features
 
-#### macOS Desktop 特有
+#### macOS Desktop Specific
 
 ```rust
-// Tauri Command 示例
+// Tauri Command Example
 #[tauri::command]
 fn unlock_vault(path: String, password: String) -> Result<VaultHandle, String> {
     let vault = Vault::open(&path, &password)
@@ -328,10 +330,10 @@ fn unlock_vault(path: String, password: String) -> Result<VaultHandle, String> {
 }
 ```
 
-#### iOS 特有
+#### iOS Specific
 
 ```swift
-// 使用 Keychain 存储主密码
+// Store master password in Keychain
 import Security
 
 func savePasswordToKeychain(password: String) {
@@ -344,89 +346,84 @@ func savePasswordToKeychain(password: String) {
     SecItemAdd(query as CFDictionary, nil)
 }
 
-// 使用 Face ID 解锁
+// Unlock with Face ID
 import LocalAuthentication
 
 func unlockWithBiometrics() async throws -> Vault {
     let context = LAContext()
     try await context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, 
-                                     localizedReason: "解锁密码库")
+                                     localizedReason: "Unlock Vault")
     let password = getPasswordFromKeychain()
     return try Vault.open(path: vaultPath, password: password)
 }
 ```
 
-## 📖 详细文档
+## 📖 Detailed Documentation
 
-- [API 完整参考](./docs/api-reference.md)
-- [Desktop 集成指南](./docs/desktop-integration.md)
-- [iOS 集成指南](./docs/ios-integration.md)
-- [架构设计](./docs/architecture.md)
-- [安全最佳实践](./docs/security.md)
+- [API Reference](./docs/api-reference.md)
+- [Desktop Integration Guide](./docs/desktop-integration.md)
+- [iOS Integration Guide](./docs/ios-integration.md)
+- [Architecture](./docs/architecture.md)
+- [Security Best Practices](./docs/security.md)
 
-## 🧪 测试
+## 🧪 Testing
 
 ```bash
-# 运行所有测试
+# Run all tests
 cargo test
 
-# 运行特定测试
+# Run specific test
 cargo test test_create_vault
-
-# 带输出的测试
-cargo test -- --nocapture
-
-# 性能测试
-cargo bench
 ```
 
-**当前测试覆盖**:
-- ✅ Vault 创建和锁定
-- ✅ Entry 创建和过期检查
-- ✅ Group 创建和层级
-- ✅ 搜索功能
-- ✅ TOTP 占位符
+**Current Test Coverage**:
+- ✅ Vault Creation and Locking
+- ✅ Entry Creation and Expiry Check
+- ✅ Group Creation and Hierarchy
+- ✅ Search Functionality
+- ✅ TOTP Placeholders
 
-## 📊 项目状态
+## 📊 Project Status
 
-### 已完成 ✅
+### Completed ✅
 
-- [x] 项目初始化
-- [x] 基础数据结构 (Entry, Group, Vault)
-- [x] 错误处理系统
-- [x] KDBX 文件打开/创建/保存
-- [x] 搜索和过滤功能
-- [x] 单元测试
+- [x] Project Initialization
+- [x] Basic Data Structures (Entry, Group, Vault)
+- [x] Error Handling System
+- [x] KDBX File Open/Create/Save
+- [x] Search and Filter Functionality
+- [x] Unit Tests
+- [x] Entry/Group CRUD Complete Implementation
+- [x] TOTP Generation and Validation
+- [x] UniFFI iOS Bindings
+- [x] Performance Optimization
 
-### 进行中 🚧
+### Ongoing 🚧
 
-- [ ] Entry/Group CRUD 完整实现
-- [ ] TOTP 生成和验证
-- [ ] UniFFI iOS 绑定
-- [ ] 性能优化
+*(None)*
 
-### 计划中 📋
+### Planned 📋
 
-- [ ] 云同步支持 (WebDAV/S3)
-- [ ] 密码强度检测
-- [ ] 自动锁定
-- [ ] 安全审计日志
+- [ ] Cloud Sync Support (WebDAV/S3)
+- [ ] Password Strength Detection
+- [ ] Auto-lock
+- [ ] Security Audit Log
 
-## 🤝 贡献
+## 🤝 Contribution
 
-这是 KeedaVault 项目的一部分。欢迎贡献！
+Part of the KeedaVault project. Contributions welcome!
 
-## 📄 许可证
+## 📄 License
 
 MIT License
 
-## 🔗 相关项目
+## 🔗 Related Projects
 
-- [keedavault-app](https://github.com/daocatt/keedavault-app) - Desktop 和 iOS 应用
-- [keedavault](https://github.com/daocatt/keedavault) - 原始实现（参考）
+- [keedavault-app](https://github.com/daocatt/keedavault-app) - Desktop and iOS Application
+- [keedavault](https://github.com/daocatt/keedavault) - Original Implementation (Reference)
 
-## 📞 支持
+## 📞 Support
 
-- 文档: [docs/](./docs/)
+- Docs: [docs/](./docs/)
 - Issues: [GitHub Issues](https://github.com/daocatt/keedavault-core/issues)
-- 讨论: [GitHub Discussions](https://github.com/daocatt/keedavault-core/discussions)
+- Discussions: [GitHub Discussions](https://github.com/daocatt/keedavault-core/discussions)
